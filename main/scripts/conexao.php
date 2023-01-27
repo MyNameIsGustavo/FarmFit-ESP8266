@@ -1,28 +1,17 @@
 <?php
 
-$dbname = '#########';
-$dbuser = '######';  
-$dbpass = '#############'; 
-$dbhost = '##########################'; 
+    try {
+        $HOST = "############";
+        $BANCO = "##########";
+        $USUARIO = "##############3";
+        $SENHA = "##############";
 
-$connect = @mysqli_connect($dbhost,$dbuser,$dbpass,$dbname);
+        $PDO = new PDO("mysql:host=" . $HOST . ";dbname=" . $BANCO . ";charset=utf8", $USUARIO, $SENHA);
 
-if(!$connect){
-	echo "Error: " . mysqli_connect_error();
-	exit();
-}
+    } catch (PDOException $erro){
 
-echo "Connection Success!<br><br>";
+        echo "Erro de Conexão, Detalhes: " . $erro->getMessage();
 
-$umidade_solo1 = $_GET['umidade_solo1'];
-$umidade_solo2 = $_GET['umidade_solo2'];
-$fluxo_agua = $_GET['fluxo_agua'];
-$permissao_bomba = $_GET['permissao_bomba'];
-
-
-$query = "INSERT INTO farm_dates (umidade_solo1, umidade_solo2, fluxo_agua, permissao_bomba) VALUES ('$umidade_solo1', '$umidade_solo2', '$fluxo_agua', '$permissao_bomba')";
-$result = mysqli_query($connect,$query);
-
-echo "Insertion Success!<br>";
-
+    }
 ?>
+
