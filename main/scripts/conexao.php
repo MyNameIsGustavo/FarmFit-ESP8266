@@ -6,7 +6,7 @@
         $USUARIO = "#######";
         $SENHA = "#######";
 
-        $PDO = nre PDO("mysql:host=" . $HOST . ";dbname=" . $BANCO . ";charset=utf8", $USUARIO, $SENHA);
+        $PDO = new PDO("mysql:host=" . $HOST . ";dbname=" . $BANCO . ";charset=utf8", $USUARIO, $SENHA);
 
     } catch (PDOException $erro){
 
