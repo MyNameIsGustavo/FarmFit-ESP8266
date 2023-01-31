@@ -1,12 +1,10 @@
 <?php
 
     try {
-        $HOST = "############";
-        $BANCO = "##########";
-        $USUARIO = "##############3";
-        $SENHA = "##############";
 
-        $PDO = new PDO("mysql:host=" . $HOST . ";dbname=" . $BANCO . ";charset=utf8", $USUARIO, $SENHA);
+        $conn = new PDO('###############################', '###############################' , '###############################');
+        $conn->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+        echo "CONEXÃO BEM SUCEDIDA!";
 
     } catch (PDOException $erro){
 
