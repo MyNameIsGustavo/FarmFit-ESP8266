@@ -1,14 +1,29 @@
-#include <ESP8266WiFi.h>
+//#include <ESP8266WiFi.h>
 #include <WiFiClient.h>
-#include <ESP8266WebServer.h>
-#include <ESP8266mDNS.h>
+//#include <ESP8266WebServer.h>
+//#include <ESP8266mDNS.h>
+#include <WiFi.h>
+#include <MQTT.h>
+#include <MQTTClient.h>
 
-const char* ssid = "################";// 
-const char* password = "################";
+const char topic[]  = "####";
+  #define BROKER_IP    "####"
+  #define DEV_NAME     "####"
+  #define MQTT_USER    "####"
+  #define MQTT_PW      "####"
+  #define TOPIC_SUBSCRIBE "####"   //Informe um Tópico único. Caso sejam usados tópicos em duplicidade, o último irá eliminar o anterior.
+
+  WiFiClient wifiClient;
+  MQTTClient mqttClient;
+
+const char* ssid = "####";// 
+const char* password = "####";
+int status = WL_IDLE_STATUS;     // the Wifi radio's status
 
 //WiFiClient client;
-char server[] = "################";   //eg: 192.168.0.222
+char server[] = "####";   //eg: 192.168.0.222
 
+int Porcento;
 int PinoAnalogico = 13; // Define o pino 13 como Pino Analógico do sensor
 int PinoDigital = 12; // Define pino D14 como Pino Digital do Sensor 
 
@@ -30,9 +45,7 @@ volatile byte pulseCount;
 byte pulse1Sec = 0;
 float flowRate;
 unsigned int flowMilliLitres;
-unsigned long totalMilliLitres;
-
-WiFiClient client;    
+unsigned long totalMilliLitres;   
 
 void IRAM_ATTR pulseCounter()
 {
@@ -41,7 +54,7 @@ void IRAM_ATTR pulseCounter()
 
 void setup() {
 
-  wifiConnection();
+  //wifiConnection();
   Serial.begin(115200);
 
   pinMode(Rele, OUTPUT); // Declara o Rele como Saída Digital 
@@ -50,27 +63,43 @@ void setup() {
 
   attachInterrupt(digitalPinToInterrupt(fluxo_agua), pulseCounter, FALLING);
 
+  mqttClient.begin(BROKER_IP, 1883, wifiClient);
+
+  conectawifi();  
+  conectamqtt();
+
 }
 
+int cont = 0;
 
 void loop() 
 {
+  
   sensor_fluxo_agua();
   umidade_solo();
-  enviardados(); 
-  delay(30000); // interval
+  //enviardados(); 
+  //mqtt
+
+  mqttClient.loop();
+    if (!mqttClient.connected()) {
+      conectawifi();
+      conectamqtt();
+    } 
+    enviaValores();
+    cont++;
+  delay(5000); // interval
 
 }
 
 
-int wifiConnection() 
+/*int wifiConnection() 
 {
   Serial.begin(115200);
-  WiFi.mode(WIFI_OFF);        //Prevents reconnection issue (taking too long to connect)
+  WiFi.mode(WIFI_OFF);        //Preventa a questão da reconexão (demora demasiado tempo a conectar)
   delay(1000);
-  WiFi.mode(WIFI_STA);        //This line hides the viewing of ESP as wifi hotspot
+  WiFi.mode(WIFI_STA);        //Esta linha oculta a visualização do ESP como hotspot wifi
 
-  WiFi.begin(ssid, password);     //Connect to your WiFi router
+  WiFi.begin(ssid, password);     //Conectar ao seu router WiFi
   Serial.println("");
 
   Serial.print("Connecting");
@@ -79,14 +108,37 @@ int wifiConnection()
     Serial.print(".");
   }
 
-  //If connection successful show IP address in serial monitor
+
+  //Se a ligação for bem sucedida mostrar o endereço IP no monitor de série
   Serial.println("");
   Serial.println("Connected to Network/SSID");
   Serial.print("IP address: ");
-  Serial.println(WiFi.localIP());  //IP address assigned to your ESP
+  Serial.println(WiFi.localIP());  // Endereço IP atribuído ao seu ESP
   Serial.begin(115200);
   return (WiFi.localIP());
 }
+*/
+
+void conectawifi()
+  {
+     // attempt to connect to Wifi network:
+    while (status != WL_CONNECTED) {
+      Serial.print("Attempting to connect to network: ");
+      Serial.println(ssid);
+      // Connect to WPA/WPA2 network:
+      status = WiFi.begin(ssid, password);
+  
+      // wait 10 seconds for connection:
+      delay(10000);
+    }
+  
+    // you're connected now, so print out the data:
+    Serial.println("You're connected to the network");
+    
+    Serial.println("----------------------------------------");
+    //printData();
+    Serial.println("----------------------------------------");
+  }
 
 void sensor_fluxo_agua(){
 
@@ -103,29 +155,29 @@ void sensor_fluxo_agua(){
     pulse1Sec = pulseCount;
     pulseCount = 0;
 
-    // Because this loop may not complete in exactly 1 second intervals we calculate
-    // the number of milliseconds that have passed since the last execution and use
-    // that to scale the output. We also apply the calibrationFactor to scale the output
-    // based on the number of pulses per second per units of measure (litres/minute in
-    // this case) coming from the sensor.
+    // Porque este ciclo pode não se completar em intervalos de exactamente 1 segundo, calculamos
+    // o número de milissegundos que passaram desde a última execução e utilização
+    // que escalar a produção. Aplicamos também o factor de calibração para escalar a produção
+    // com base no número de impulsos por segundo por unidade de medida (litros/minuto em
+    // neste caso) proveniente do sensor.
     flowRate = ((1000.0 / (millis() - previousMillis)) * pulse1Sec) / calibrationFactor;
     previousMillis = millis();
 
-    // Divide the flow rate in litres/minute by 60 to determine how many litres have
-    // passed through the sensor in this 1 second interval, then multiply by 1000 to
-    // convert to millilitres.
+    // Dividir o caudal em litros/minuto por 60 para determinar quantos litros têm
+    // passou pelo sensor neste intervalo de 1 segundo, depois multiplicar por 1000 até
+    // converter para mililitros.
     flowMilliLitres = (flowRate / 60) * 1000;
 
-    // Add the millilitres passed in this second to the cumulative total    
+    // Adicionar os mililitros passados neste segundo ao total acumulado
     totalMilliLitres += flowMilliLitres;
     
-    // Print the flow rate for this second in litres / minute
+    // Imprimir o caudal para este segundo em litros / minuto
     Serial.print("Flow rate: ");
-    Serial.print(int(flowRate));  // Print the integer part of the variable
+    Serial.print(int(flowRate));  // Imprimir a parte inteira da variável
     Serial.print("L/min");
-    Serial.print("\t");       // Print tab space
+    Serial.print("\t");       // Imprimir espaço na aba
 
-    // Print the cumulative total of litres flowed since starting
+    // Imprimir o total acumulado de litros fluidos desde o início
     Serial.print("Output Liquid Quantity: ");
     Serial.print(totalMilliLitres);
     Serial.print("mL / ");
@@ -156,14 +208,14 @@ void umidade_solo(){
   }
 }
 
-
+/*
 void enviardados()
 {
-  if(client.connect(server, 3306)) {
+  if(client.connect(server, 80)) {
   Serial.println("connected");
-  // Make a HTTP request:
-  Serial.print("GET /testcode/dht.php?humidity=");
-  client.print("GET /testcode/dht.php?humidity=");     //YOUR URL
+  // Fazer um pedido HTTP:
+  Serial.print("GET /salvar.php?humidity=");
+  client.print("GET /testcode/dht.php?humidity=");     //SUA URL
   //Serial.println(humidityData);
   //client.print(humidityData);
   client.print("&temperature=");
@@ -176,7 +228,34 @@ void enviardados()
   client.println("Connection: close");
   client.println();
   } else {
-    // if you didn't get a connection to the server:
+    // se você não conseguiu uma conexão com o servidor:
     Serial.println("connection failed");
   }
  }
+*/
+   void conectamqtt()
+  {
+    Serial.print("\nconnectando MQTT...");
+    while (!mqttClient.connect(DEV_NAME));//, MQTT_USER, MQTT_PW)) 
+    {
+      Serial.print(".");
+      delay(1000);
+    }
+    Serial.println("\nMQTT connected!");
+    Serial.print("BROKER_IP=");
+    Serial.println(BROKER_IP);
+    Serial.print("DEV_NAM=");
+    Serial.println(DEV_NAME);
+    Serial.print("MQTT_USER=");
+    Serial.println(MQTT_USER);
+    Serial.print("MQTT_PW=");
+    Serial.println(MQTT_PW);
+    
+  }
+
+void enviaValores() {
+
+  //Ler a umidade 
+  mqttClient.publish(topic, "Fluxo de Agua: " + String(flowRate) + " Umidade do Solo: " + String(Porcento) + "%");
+
+}
